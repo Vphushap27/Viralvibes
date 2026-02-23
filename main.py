@@ -1,11 +1,18 @@
 import telebot
 import requests
+import time
 
 # Tokens
 BOT_TOKEN = "7724762942:AAG5fMig2190WDTyqzqfPugxmyBN-QW3XK4"
 OMDB_API_KEY = "378f0eb1" 
 
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# --- WEBHOOK ERROR FIX ---
+# Ye line purane kisi bhi connection ko khatam kar degi
+bot.remove_webhook()
+time.sleep(1) 
+# -------------------------
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
@@ -33,4 +40,4 @@ def get_movie_details(message):
         print(f"Error: {e}")
 
 print("Bot is starting...")
-bot.polling()
+bot.infinity_polling() # Infinity polling zyada stable hoti hai
