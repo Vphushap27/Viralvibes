@@ -1,55 +1,62 @@
 import telebot
 import requests
-import os
-from flask import Flask
-from threading import Thread
+import logging
 
-# 1. Dummy Flask Server (Port error fix karne ke liye)
-app = Flask('')
+# Setup Logging taaki Render par error dikhe
+logging.basicConfig(level=logging.INFO)
 
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run():
-    # Render automatically 'PORT' environment variable deta hai
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
-
-# 2. Bot Setup
+# --- CONFIGURATION ---
 BOT_TOKEN = "7724762942:AAG5fMig2190WDTyqzqfPugxmyBN-QW3XK4"
+OMDB_API_KEY = "378f0eb1"
+# ---------------------
+
 bot = telebot.TeleBot(BOT_TOKEN)
 
 @bot.message_handler(commands=['start'])
-def welcome(message):
-    bot.reply_to(message, "🎬 Welcome! Main live hoon.\nJoin: @viralmovies_hd")
+def send_welcome(message):
+    welcome_text = (
+        "👋 Welcome to MovieMintBot!\n\n"
+        "Kisi bhi movie ka naam likhein aur main uski details nikaal kar doonga.\n"
+        "Powered by: @viralmovies_hd"
+    )
+    bot.reply_to(message, welcome_text)
 
 @bot.message_handler(func=lambda message: True)
-def get_details(message):
-    query = message.text
-    url = f"https://api.tvmaze.com/singlesearch/shows?q={query}"
-    try:
-        r = requests.get(url)
-        if r.status_code == 200:
-            data = r.json()
-            name = data.get('name')
-            image = data.get('image', {}).get('original')
-            caption = f"📺 *{name}*\n\n📥 Join: @viralmovies_hd"
-            if image:
-                bot.send_photo(message.chat.id, image, caption=caption, parse_mode="Markdown")
-            else:
-                bot.send_message(message.chat.id, caption, parse_mode="Markdown")
-    except Exception as e:
-        print(f"Error: {e}")
-
-# 3. Dono ko saath chalana
-if __name__ == "__main__":
-    # Server ko background mein start karo
-    t = Thread(target=run)
-    t.start()
+def search_movie(message):
+    movie_name = message.text
+    print(f"Searching for: {movie_name}") # Logs mein dikhega
     
-    # Bot ko start karo
-    print("Bot is starting...")
-    bot.infinity_polling()
+    # OMDB API Call
+    url = f"http://www.omdbapi.com/?t={movie_name}&apikey={OMDB_API_KEY}"
+    
+    try:
+        response = requests.get(url).json()
+        
+        if response.get("Response") == "True":
+            title = response.get("Title")
+            year = response.get("Year")
+            rating = response.get("imdbRating")
+            plot = response.get("Plot")
+            poster = response.get("Poster")
+            
+            caption = (
+                f"🎬 *{title}* ({year})\n\n"
+                f"⭐ *Rating:* {rating}/10\n"
+                f"📝 *Plot:* {plot}\n\n"
+                f"📢 Join: @viralmovies_hd"
+            )
+            
+            if poster and poster != "N/A":
+                bot.send_photo(message.chat.id, poster, caption=caption, parse_mode="Markdown")
+            else:
+                bot.reply_to(message, caption, parse_mode="Markdown")
+        else:
+            bot.reply_to(message, "❌ Maaf kijiye, ye movie nahi mili!")
+            
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        bot.reply_to(message, "⚠️ Kuch error aaya hai, baad mein try karein.")
 
-bot.infinity_polling(timeout=10, long_polling_timeout=5)
+if __name__ == "__main__":
+    print("Bot is running...")
+    bot.infinity_polling()
